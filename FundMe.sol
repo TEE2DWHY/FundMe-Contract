@@ -11,7 +11,7 @@ contract FundMe{
     address public immutable i_owner; // owner of contract. The immutable keyword helps with gas efficiency
     error NotOwner() // a custom error handler. It helps with gas efficiency.
     constructor(){
-        owner = msg.sender;
+        i_owner = msg.sender;
     }
    // funding
     function fund() public payable {
