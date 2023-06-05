@@ -9,6 +9,7 @@ contract FundMe{
     address[] public funders; // created an array of people who calls the fund function
     mapping(address => uint256) public addressToAmountFunded; // mapped each address to the amount they've funded
     address public immutable i_owner; // owner of contract. The immutable keyword helps with gas efficiency
+    error NotOwner() // a custom error handler. It helps with gas efficiency.
     constructor(){
         owner = msg.sender;
     }
@@ -29,7 +30,10 @@ contract FundMe{
         // bool sendSuccess = payable(msg.sender).send(address(this).balance); => // this is withdrawal method using send method
         // require(sendSuccess, "Send Failure");
         (bool callSuccess,) = payable(msg.sender).call{value: address(this).balance}(""); // this is withdrawal method using the call method
-        require(callSuccess, "Call Failure");
+        // require(callSuccess, "Call Failure");
+             if(msg.sender != i_owner){ // rather than using the require keyword, we can use an error handler as it helps with gas efficiency.
+            revert();
+        }
     }
 
     // to ensure only the contract creator can call the withdraw function we do:
