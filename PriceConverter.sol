@@ -1,67 +1,28 @@
 // SPDX-License-Identifier: MIT
+
 pragma solidity 0.8.18;
 
-import "./PriceConverter.sol";
+import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol"; // imported the Chain link aggreagtor
 
-contract FundMe {
-    using PriceConverter for uint256;
-    uint256 public constant MAX_USD = 1000 * 1e18; // we use the Wei format because our getConversionRate function returns amount in USD in Wei format. The constant keyword helps with gas efficiency
-    address[] public funders; // created an array of people who calls the fund function
-    mapping(address => uint256) public addressToAmountFunded; // mapped each address to the amount they've funded
-    address public immutable i_owner; // owner of contract. The immutable keyword helps with gas efficiency
-    error NotOwner(); // a custom error handler. It helps with gas efficiency.
-
-    constructor() {
-        i_owner = msg.sender;
-    }
-
-    // funding
-    function fund() public payable {
-        require(
-            (msg.value.getConversionRate()) <= MAX_USD,
-            "ETH funding amount exceeded"
+library PriceConverter {
+    // We firstly want to get the current price of ETH
+    function getPrice() public view returns (uint256) {
+        //since we in our get price function we are interacting with a contract outside our project we need 2 params (ABI & address of the contract)
+        //ABI (We access this by importing the Chain link aggreagtor)
+        //Address : 0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419 - Contract Address for price feed of ETH/USD
+        AggregatorV3Interface priceFeed = AggregatorV3Interface(
+            0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419
         );
-        funders.push(msg.sender); // push addresses to the funders array
-        addressToAmountFunded[msg.sender] = msg.value; // map address to amount sent
+        (, int256 price, , , ) = priceFeed.latestRoundData();
+        return uint256(price * 1e10);
     }
 
-    //withdraw
-    function withdraw() public onlyOwner {
-        for (
-            uint256 funderIndex = 0;
-            funderIndex < funders.length;
-            funderIndex++
-        ) {
-            address funder = funders[funderIndex]; // we get the funder address from the first index
-            addressToAmountFunded[funder] = 0; // we reset the amount funded by funder to 0
-        }
-        funders = new address[](0); // we refresh the funders array after withdrawal
-        // payable(msg.sender).transfer(address(this).balance);=> // this is withdrawal method using the transfer method
-        // bool sendSuccess = payable(msg.sender).send(address(this).balance); => // this is withdrawal method using send method
-        // require(sendSuccess, "Send Failure");
-        (bool callSuccess, ) = payable(msg.sender).call{
-            value: address(this).balance
-        }(""); // this is withdrawal method using the call method
-        // require(callSuccess, "Call Failure");
-        if (msg.sender != i_owner) {
-            // rather than using the require keyword, we can use an error handler as it helps with gas efficiency.
-            revert();
-        }
-    }
-
-    // to ensure only the contract creator can call the withdraw function we do:
-    modifier onlyOwner() {
-        msg.sender == i_owner;
-        _;
-    }
-
-    receive() external payable {
-        // this would help handle a scenraio where an address sends money to our contract without calling the fund function
-        fund();
-    }
-
-    fallback() external payable {
-        // this would help handle a scenraio where an address sends money to our contract without calling the fund function
-        fund();
+    // We want to get the price in USD for an amount of ETH
+    function getConversionRate(
+        uint256 ethAmount
+    ) public view returns (uint256) {
+        uint256 ethPrice = getPrice();
+        uint256 amountInUsd = (ethPrice * ethAmount) / 1e18;
+        return amountInUsd;
     }
 }
